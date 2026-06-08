@@ -137,28 +137,45 @@ static void handleRoot() {
                  r, (r == (int)(g_settings.rangeKm + 0.5f)) ? " selected" : "", r);
         ropts += o;
     }
-    char buf[2560];
+    char buf[3400];
     snprintf(buf, sizeof(buf),
-        "<!DOCTYPE html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
+        "<!DOCTYPE html><html><head><meta charset=utf-8>"
+        "<meta name=viewport content='width=device-width,initial-scale=1'>"
         "<title>Capsule Radar</title><style>"
-        "body{background:#06100a;color:#cdd6d1;font-family:system-ui,sans-serif;margin:0;padding:18px;max-width:480px}"
-        "h1{color:#1dff86;font-size:20px}label{display:block;margin:14px 0 4px;color:#9affc8;font-size:13px}"
-        "input,select{width:100%%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #2a4a39;background:#0c1a12;color:#eafff3;font-size:16px}"
-        "button{margin-top:18px;width:100%%;padding:12px;border:0;border-radius:8px;background:#1dff86;color:#04140b;font-weight:700;font-size:16px}"
-        ".w{background:#ffb23c}.card{background:#0a140e;border:1px solid #1f3a2b;border-radius:14px;padding:16px;margin-bottom:16px}"
-        "</style></head><body><h1>Capsule Radar</h1>"
-        "<div class=card><form method=POST action=/save>"
+        "*{box-sizing:border-box}"
+        "body{background:radial-gradient(circle at 50%% -10%%,#0a1f15,#04100a 70%%);color:#cdd6d1;"
+        "font-family:system-ui,-apple-system,sans-serif;margin:0 auto;padding:20px;max-width:480px;min-height:100vh}"
+        ".hd{display:flex;align-items:center;gap:12px;margin-bottom:16px}"
+        ".dot{width:44px;height:44px;border-radius:50%%;border:2px solid #1dff86;position:relative;"
+        "overflow:hidden;flex:0 0 auto;box-shadow:0 0 16px rgba(29,255,134,.4)}"
+        ".dot::before{content:'';position:absolute;inset:0;animation:sw 3s linear infinite;"
+        "background:conic-gradient(from 0deg,rgba(29,255,134,.65),transparent 55%%)}"
+        "@keyframes sw{to{transform:rotate(360deg)}}"
+        "h1{color:#1dff86;font-size:20px;margin:0}.sub{color:#6f8c7d;font-size:12px;margin:2px 0 0}"
+        ".t{color:#1dff86;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;opacity:.85}"
+        "label{display:block;margin:12px 0 4px;color:#9affc8;font-size:13px}"
+        "input,select{width:100%%;box-sizing:border-box;padding:10px;border-radius:8px;border:1px solid #2a4a39;"
+        "background:#0c1a12;color:#eafff3;font-size:16px}"
+        "input:focus,select:focus{outline:none;border-color:#1dff86;box-shadow:0 0 0 2px rgba(29,255,134,.18)}"
+        "button{margin-top:16px;width:100%%;padding:12px;border:0;border-radius:8px;background:#1dff86;"
+        "color:#04140b;font-weight:700;font-size:16px}button:active{opacity:.85}"
+        ".w{background:#ffb23c}.card{background:rgba(10,20,14,.85);border:1px solid #1f3a2b;border-radius:14px;padding:16px;margin-bottom:14px}"
+        ".ft{color:#5f7a6c;font-size:12px;text-align:center;margin-top:6px}.ft code{color:#9affc8}"
+        "</style></head><body>"
+        "<div class=hd><div class=dot></div><div><h1>Capsule Radar</h1><p class=sub>Live ADS-B radar &middot; configuration</p></div></div>"
+        "<div class=card><div class=t>Location &amp; range</div><form method=POST action=/save>"
         "<label>Center latitude</label><input name=lat value='%.5f'>"
         "<label>Center longitude</label><input name=lon value='%.5f'>"
         "<label>Display range (km)</label><select name=range>%s</select>"
         "<label>Theme</label><select name=theme>"
-        "<option value=0 %s>Phosphor</option><option value=1 %s>Dragon</option></select>"
+        "<option value=0 %s>Phosphor</option><option value=1 %s>Dragon (Capsule Corp)</option></select>"
         "<button>Save &amp; restart</button></form></div>"
-        "<div class=card><label>Brightness</label>"
+        "<div class=card><div class=t>Brightness</div>"
         "<input type=range min=5 max=255 value='%d' oninput='b(this.value,0)' onchange='b(this.value,1)'></div>"
-        "<div class=card><form method=POST action=/wifi>"
-        "<p style='color:#9affc8;font-size:13px'>Forget the saved WiFi and reopen the setup portal.</p>"
-        "<button class=w>Reset WiFi</button></form></div>"
+        "<div class=card><div class=t>Network</div>"
+        "<p style='color:#9affc8;font-size:13px;margin:0 0 4px'>Forget the saved WiFi and reopen the setup portal.</p>"
+        "<form method=POST action=/wifi><button class=w>Reset WiFi</button></form></div>"
+        "<p class=ft>Reach me at <code>capsuleradar.local</code></p>"
         "<script>function b(v,s){fetch('/bright?v='+v+(s?'&save=1':''))}</script></body></html>",
         g_settings.homeLat, g_settings.homeLon, ropts.c_str(),
         th == 0 ? "selected" : "", th == 1 ? "selected" : "", g_brightnessDay);
@@ -247,6 +264,18 @@ void setup() {
     // First boot opens the "CapsuleRadar-Setup" AP to enter WiFi creds. Non-blocking
     // so the radar keeps animating while you configure WiFi from your phone.
     g_wm.setConfigPortalBlocking(false);
+    g_wm.setTitle("Capsule Radar");
+    // light phosphor-green theme for the captive portal (small CSS, injected into <head>)
+    g_wm.setCustomHeadElement(
+        "<style>"
+        "body{background:#06100a;color:#cdd6d1;font-family:system-ui,sans-serif}"
+        "h1,h2,h3{color:#1dff86}"
+        "button,input[type=submit],.btn{background:#1dff86!important;color:#04140b!important;"
+        "border:0!important;border-radius:8px!important;font-weight:700}"
+        "input,select{background:#0c1a12!important;color:#eafff3!important;"
+        "border:1px solid #2a4a39!important;border-radius:8px!important}"
+        "a{color:#1dff86}.q{filter:hue-rotate(90deg)}"
+        "</style>");
     if (g_wm.autoConnect("CapsuleRadar-Setup"))
         Serial.println("[wifi] connected");
     else
@@ -305,6 +334,12 @@ void loop() {
             ui_set_date(date);
         }
         ui_set_status(WiFi.status() == WL_CONNECTED, clk);
+        char net[80];
+        if (WiFi.status() == WL_CONNECTED)
+            snprintf(net, sizeof(net), "Configure at\ncapsuleradar.local\n%s", WiFi.localIP().toString().c_str());
+        else
+            snprintf(net, sizeof(net), "WiFi setup:\njoin CapsuleRadar-Setup");
+        ui_set_netinfo(net);
         const bool bpresent = battery_present();
         ui_set_battery(battery_percent(), battery_charging(), bpresent);
         g_onBattery = bpresent && !battery_charging();

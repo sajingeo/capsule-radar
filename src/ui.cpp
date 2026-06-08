@@ -24,6 +24,7 @@ static char s_lastRouteReq[12] = "";
 static lv_obj_t *s_hudWifi = nullptr, *s_hudCount = nullptr, *s_hudClock = nullptr, *s_hudBatt = nullptr, *s_hudDate = nullptr;
 static lv_obj_t *s_list = nullptr;
 static lv_obj_t *s_statsLbl = nullptr;
+static lv_obj_t *s_statsNet = nullptr;
 
 // ----------------------------------------------------------------- detail card
 static void refresh_card(void) {
@@ -124,6 +125,10 @@ void ui_set_battery(int pct, bool charging, bool present) {
 
 void ui_set_date(const char *date) {
     if (s_hudDate && date) lv_label_set_text(s_hudDate, date);
+}
+
+void ui_set_netinfo(const char *line) {
+    if (s_statsNet && line) lv_label_set_text(s_statsNet, line);
 }
 
 void ui_on_data_updated(void) {
@@ -316,7 +321,16 @@ void ui_create(void) {
     lv_obj_set_style_text_font(s_statsLbl, &lv_font_montserrat_16, 0);
     lv_obj_set_style_text_color(s_statsLbl, UI_SOFT, 0);
     lv_label_set_text(s_statsLbl, "Aircraft   0");
-    lv_obj_center(s_statsLbl);
+    lv_obj_align(s_statsLbl, LV_ALIGN_CENTER, 0, -16);
+
+    // footer: where to reach the configuration page (IP / hostname / setup AP)
+    s_statsNet = lv_label_create(sp);
+    lv_obj_set_width(s_statsNet, 320);
+    lv_obj_set_style_text_font(s_statsNet, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(s_statsNet, UI_GREEN, 0);
+    lv_obj_set_style_text_align(s_statsNet, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(s_statsNet, "");
+    lv_obj_align(s_statsNet, LV_ALIGN_CENTER, 0, 132);
 
     lv_obj_set_tile_id(s_tv, 0, 0, LV_ANIM_OFF);
 }

@@ -187,6 +187,7 @@ int main(int argc, char **argv) {
             ui_set_status(true, clk);
             ui_set_battery(78, false, true);   // mock battery
             ui_set_date("08 Jun 2026");        // mock date
+            ui_set_netinfo("Configure at\ncapsuleradar.local\n192.168.1.42");  // mock net info
         }
         // fulfil route lookups with a mock (the sim has no network)
         char wc[12];
