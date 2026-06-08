@@ -95,7 +95,7 @@ static void radar_clicked_cb(lv_event_t *e) {
     if (s_longPressed) { s_longPressed = false; return; }   // ignore the click after a long-press
 
     const uint32_t now = lv_tick_get();
-    if (now - s_lastTapMs < 350) {                          // double-tap -> cycle zoom range
+    if (s_lastTapMs && now - s_lastTapMs < 500) {           // double-tap -> cycle zoom range
         s_lastTapMs = 0;
         if (s_rangeCb) {
             const int n = (int)(sizeof(RANGE_STEPS_KM) / sizeof(RANGE_STEPS_KM[0]));
@@ -106,6 +106,7 @@ static void radar_clicked_cb(lv_event_t *e) {
     }
     s_lastTapMs = now;
 
+    if (lv_event_get_target(e) == s_card) return;           // taps on the detail card never select
     lv_indev_t *indev = lv_indev_get_act();
     if (!indev) return;
     lv_point_t p;
@@ -243,6 +244,7 @@ static void build_card(void) {
     lv_obj_add_flag(s_card, LV_OBJ_FLAG_CLICKABLE);   // consume taps (don't deselect)
     lv_obj_clear_flag(s_card, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(s_card, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_card, radar_clicked_cb, LV_EVENT_CLICKED, NULL);  // double-tap works over the card too
 
     s_cardTitle = lv_label_create(s_card);
     lv_obj_set_style_text_font(s_cardTitle, &lv_font_montserrat_16, 0);

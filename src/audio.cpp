@@ -163,11 +163,10 @@ static void play_cue(int cue) {
             delay(40);
         }
     } else {
-        size_t ns = gen_beep(buf, S_BUF_LEN, 880.0f, 110, amp * 0.8f);
+        size_t ns = gen_beep(buf, S_BUF_LEN, 880.0f, 160, amp);
         i2s_write(I2S_PORT, buf, ns * 2, &bw, portMAX_DELAY);
     }
-    i2s_zero_dma_buffer(I2S_PORT);
-    delay(6);
+    delay(90);                                     // let the DMA clock the tail out before cutting the amp
     digitalWrite(PIN_AUDIO_PA, LOW);               // mute amp between pings (saves power, kills hiss)
 }
 
