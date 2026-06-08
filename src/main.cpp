@@ -548,6 +548,10 @@ void loop() {
     static uint32_t lastStatus = 0;
     if (millis() - lastStatus > 5000) {
         lastStatus = millis();
+        Serial.printf("[mem] heap %u (min %u) | psram %u free | up %lus | aircraft %d\n",
+                      (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+                      (unsigned)ESP.getFreePsram(), (unsigned long)(millis() / 1000),
+                      (int)g_snap.size());
         char clk[8] = "--:--";
         struct tm ti;
         const bool haveTime = getLocalTime(&ti, 0);
