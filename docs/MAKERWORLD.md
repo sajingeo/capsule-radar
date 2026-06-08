@@ -1,0 +1,137 @@
+# Capsule Radar — MakerWorld listing draft
+
+Copy/paste into the MakerWorld upload form. Sections map to MakerWorld fields.
+Fill the **`‹TODO›`** placeholders once the 3D enclosure is finished (photos, print
+profile, assembly). Suggested preview images live in `docs/img/` (the GIF + theme
+shots) until you have real photos of the printed unit.
+
+> ⚠️ **Trademark caution:** "Dragon Ball" / "Capsule Corp" / "Dragon Radar" are
+> trademarks. The DBZ-style theme is a **fan homage** — do **not** upload official
+> logos/artwork or use those trademarks in the title/marketing, or the model may be
+> taken down. The phosphor radar is the safe "hero" look for the listing; present the
+> green skin neutrally (e.g. "retro orb radar theme"). Consider whether even the name
+> "Capsule Radar" is too close for the listing title (a neutral title is safer).
+
+---
+
+## Title
+**Capsule Radar — Live Flight Radar Desk Gadget (ESP32-S3 Round AMOLED, Touch)**
+
+*(Safer alt title if avoiding the Capsule nod: "Orbit Radar — Live ADS-B Flight Radar, ESP32-S3 Round AMOLED")*
+
+## Summary (one-liner)
+A 3D-printed desk gadget that shows **real aircraft flying around you, live**, on a
+round touch AMOLED — pulled from a free online ADS-B feed over WiFi. Open-source
+firmware, **flash it from your browser** in one click.
+
+## Category / Tags
+`electronics` · `gadget` · `esp32` · `desk-toy` · `radar` · `ads-b` · `aviation` ·
+`amoled` · `iot` · `arduino` · `flight-tracker`
+
+---
+
+## Description (long)
+
+Capsule Radar turns a Waveshare round AMOLED dev board into a **live air-traffic
+radar** for your desk. It fetches nearby aircraft from a free ADS-B feed over WiFi and
+plots them on a phosphor-green radar scope centred on your location — rotated by
+heading, colour-coded by altitude, with fading trails and an animated sweep. Tap any
+aircraft for a detail card (callsign, type, altitude, speed, distance, heading, squawk)
+and even its **origin → destination** route.
+
+It's a finished, polished build: touch UI, multiple themes, a boot splash, alert beeps,
+battery and real-time-clock support, night auto-dim, and a built-in web page to
+configure everything. No coding required — **flash it straight from Chrome/Edge**.
+
+### Features
+- 🛩️ **Live traffic** from a free ADS-B feed (airplanes.live, fallback adsb.lol),
+  refreshed every couple of seconds.
+- 👆 **Touch**: tap an aircraft → full detail card + **route** (origin → destination).
+  Swipe between **Radar / List / Stats** views.
+- 🎨 **Four themes** (long-press to switch): phosphor scope, a retro "orb" radar skin,
+  amber CRT, and night-vision green.
+- 🔁 **On-screen zoom** button (10–100 km) and a **web config page** at
+  `capsuleradar.local` (centre point, range, theme, brightness, sound, dim timer).
+- 🔊 **Alert pings** (built-in speaker): a soft ping for new contacts, an urgent beep
+  for emergency/military squawks. Volume + mute on the web.
+- 🔋 **Battery-aware** (optional LiPo): on-screen %, low warning, slower polling on
+  battery. 🕐 **Real-time clock** keeps time/date across power loss; **NTP** sync.
+- 🌙 **Smart dimming**: night auto-dim, configurable idle auto-dim, and **face-down
+  sleep** (flip it over to turn the screen off).
+- ⚡ **Browser flashing** (ESP Web Tools) — or download a single `.bin`. First boot
+  opens a WiFi setup hotspot; enter your network from your phone and you're live.
+
+---
+
+## What you need (Bill of Materials)
+
+| Qty | Item | Notes |
+|----:|------|-------|
+| 1 | **Waveshare ESP32-S3-Touch-AMOLED-1.75** | The brains + screen. Round 466×466 CO5300 AMOLED, capacitive touch, ESP32-S3R8 (8 MB PSRAM / 16 MB flash), IMU, RTC, PMIC, audio codec. |
+| 1 | **Speaker** (8 Ω, small, with the board's connector) | For the alert pings. Optional but recommended. |
+| 1 | **USB-C cable (data)** | To flash + power. |
+| 1 | **LiPo battery** (3.7 V, JST, optional) | For cordless use; the board charges it. ‹TODO: size that fits the enclosure› |
+| — | **Printed enclosure** | See print settings below. |
+| ‹n› | **Screws / heat-set inserts** | ‹TODO: e.g. M2×4 inserts + M2×6 screws› |
+
+> The Waveshare board is the only electronics you must buy — everything (display,
+> touch, IMU, RTC, battery management, audio) is on it. No soldering required.
+
+---
+
+## Print settings  ‹TODO — fill from your slicer once the model is final›
+
+| Setting | Value |
+|---|---|
+| Printer | ‹TODO› |
+| Material | ‹TODO: PLA / PETG› |
+| Nozzle | ‹0.4 mm› |
+| Layer height | ‹0.2 mm› |
+| Walls / Infill | ‹3 walls / 15 %› |
+| Supports | ‹TODO› |
+| Parts | ‹front bezel, back shell, … › |
+| Print time | ‹TODO› · Filament: ‹TODO g› |
+
+## Assembly  ‹TODO›
+1. ‹Press the heat-set inserts into the back shell.›
+2. ‹Seat the board against the front bezel; the round AMOLED aligns with the window.›
+3. ‹Connect the speaker (and LiPo) to the board's connectors.›
+4. ‹Close the shell and fasten with the screws.›
+5. Flash the firmware (next section) and run the WiFi setup.
+
+---
+
+## Flash & set up (no toolchain)
+1. Open the **web flasher**: https://socquique.github.io/capsule-radar/ (Chrome/Edge desktop).
+2. Plug the board in with a USB-C **data** cable, click **Install**, pick the serial port.
+3. On first boot, join the **`CapsuleRadar-Setup`** WiFi from your phone and enter your
+   network + home location.
+4. Fine-tune anything later at **`http://capsuleradar.local/`**.
+
+Prefer a file? Download `CapsuleRadar-esp32s3.bin` from the
+[GitHub Releases](https://github.com/socquique/capsule-radar/releases) and flash to
+offset `0x0` with esptool. Build from source with PlatformIO if you like.
+
+---
+
+## Source code & firmware
+Open source (firmware + simulator + web flasher):
+**https://github.com/socquique/capsule-radar**
+
+## Credits & data
+- Aircraft data: **airplanes.live** (free, **non-commercial / educational** use) ·
+  routes: **adsbdb.com**. Please keep request rates gentle.
+- Hardware: Waveshare ESP32-S3-Touch-AMOLED-1.75.
+- Firmware: open source (see the repo for the license).
+
+## License (pick one on MakerWorld)
+Because the project relies on **non-commercial** data sources, a non-commercial model
+license is the consistent choice — e.g. **CC BY-NC 4.0** (Attribution-NonCommercial).
+If you want max sharing with attribution, CC BY 4.0; avoid commercial-use licenses.
+
+---
+
+## Preview media to upload
+- `docs/img/radar.gif` — animated hero shot of the live scope.
+- `docs/img/radar.png`, `dragon.png`, `amber.png`, `military.png` — the four themes.
+- ‹TODO› — real photos of the printed unit on a desk (best for the cover image).
