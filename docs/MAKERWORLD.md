@@ -43,6 +43,10 @@ It's a finished, polished build: touch UI, multiple themes, a boot splash, alert
 battery and real-time-clock support, night auto-dim, and a built-in web page to
 configure everything. No coding required — **flash it straight from Chrome/Edge**.
 
+**The design:** a round "scope-orb" / pocket-watch form factor — a knurled tactile
+ring around the bezel, a printed crown/button on top, a side USB-C port, an integrated
+speaker, a small kickstand foot, and an engraved logo. Snap-/screw-together, no soldering.
+
 ### Features
 - 🛩️ **Live traffic** from a free ADS-B feed (airplanes.live, fallback adsb.lol),
   refreshed every couple of seconds.
@@ -89,14 +93,18 @@ configure everything. No coding required — **flash it straight from Chrome/Edg
 | Layer height | ‹0.2 mm› |
 | Walls / Infill | ‹3 walls / 15 %› |
 | Supports | ‹TODO› |
-| Parts | ‹front bezel, back shell, … › |
+| Parts | Front bezel + tactile ring, back shell, top crown/button, kickstand foot ‹confirm/adjust› |
 | Print time | ‹TODO› · Filament: ‹TODO g› |
 
-## Assembly  ‹TODO›
-1. ‹Press the heat-set inserts into the back shell.›
-2. ‹Seat the board against the front bezel; the round AMOLED aligns with the window.›
-3. ‹Connect the speaker (and LiPo) to the board's connectors.›
-4. ‹Close the shell and fasten with the screws.›
+> Tip: print the bezel/ring in white and the inner trim in a contrasting dark filament
+> (as shown) for the two-tone look; the logo can be engraved or printed as a colour swap.
+
+## Assembly
+1. ‹Press any heat-set inserts into the back shell.›
+2. Seat the Waveshare board behind the round front window (the AMOLED aligns with the
+   bezel opening); route the **USB-C port** to the side cut-out.
+3. Plug the **speaker** into the board's speaker connector (and the LiPo, if used).
+4. Fit the **top crown/button**, then close the back shell and fasten ‹with the screws›.
 5. Flash the firmware (next section) and run the WiFi setup.
 
 ---
@@ -132,6 +140,11 @@ If you want max sharing with attribution, CC BY 4.0; avoid commercial-use licens
 ---
 
 ## Preview media to upload
+- **Finished promo graphics** (EN + ES) of the assembled unit — use the English one as
+  the **cover image**; great call-outs (display, Wi-Fi app, USB-C/battery, tactile ring,
+  beep alert, detailed flight view, interior shot).
 - `docs/img/radar.gif` — animated hero shot of the live scope.
 - `docs/img/radar.png`, `dragon.png`, `amber.png`, `military.png` — the four themes.
-- ‹TODO› — real photos of the printed unit on a desk (best for the cover image).
+- The **interior photo** (board + speaker in the shell) is perfect for the "what's
+  inside / assembly" gallery.
+- ‹TODO› — a couple of plain desk photos of the real unit (lit screen) also help.
