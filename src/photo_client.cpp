@@ -46,29 +46,48 @@ static bool http_get(const char *url, uint8_t **out, size_t *outLen, size_t maxL
     const int code = http.GET();
     if (code != 200) { Serial.printf("[photo]   HTTP %d\n", code); http.end(); return false; }
 
-    const int len = http.getSize();                  // may be -1 (chunked)
-    const size_t cap = (len > 0 && (size_t)len <= maxLen) ? (size_t)len : maxLen;
-    uint8_t *buf = (uint8_t *)heap_caps_malloc(cap, MALLOC_CAP_SPIRAM);
-    if (!buf) { http.end(); return false; }
-
-    WiFiClient *stream = http.getStreamPtr();
+    const int len = http.getSize();                  // >0 = Content-Length; -1 = chunked/unknown
+    uint8_t *buf = nullptr;
     size_t got = 0;
-    uint32_t last = millis();
-    while (got < cap && (millis() - last) < 9000) {
-        const size_t avail = stream->available();
-        if (avail) {
-            const size_t want = (cap - got < avail) ? (cap - got) : avail;
-            const int r = stream->readBytes(buf + got, want);
-            if (r > 0) { got += r; last = millis(); }
-        } else if (!http.connected()) {
-            break;
-        } else {
-            delay(5);
+
+    if (len > 0) {
+        // Known length: stream the body straight into a PSRAM buffer.
+        const size_t cap = ((size_t)len <= maxLen) ? (size_t)len : maxLen;
+        buf = (uint8_t *)heap_caps_malloc(cap, MALLOC_CAP_SPIRAM);
+        if (!buf) { http.end(); return false; }
+        WiFiClient *stream = http.getStreamPtr();
+        uint32_t last = millis();
+        while (got < cap && (millis() - last) < 9000) {
+            const size_t avail = stream->available();
+            if (avail) {
+                const size_t want = (cap - got < avail) ? (cap - got) : avail;
+                const int r = stream->readBytes(buf + got, want);
+                if (r > 0) { got += r; last = millis(); }
+            } else if (!http.connected()) {
+                break;
+            } else {
+                delay(5);
+            }
+            if (got >= cap) break;
         }
-        if (len > 0 && got >= (size_t)len) break;
+    } else {
+        // Chunked / unknown length: getStreamPtr() does NOT undo chunked transfer
+        // encoding, so the raw body would contain chunk-size markers and corrupt the
+        // parse. getString() performs the chunk decode. planespotters serves its JSON
+        // chunked over HTTP/1.1 (Cloudflare), and that JSON is small, so the transient
+        // String on the internal heap is cheap. (Image thumbnails carry Content-Length
+        // and take the branch above, so a big binary never lands here.)
+        String body = http.getString();
+        got = body.length();
+        if (got > maxLen) got = maxLen;
+        if (got > 0) {
+            buf = (uint8_t *)heap_caps_malloc(got, MALLOC_CAP_SPIRAM);
+            if (buf) memcpy(buf, body.c_str(), got);
+            else got = 0;
+        }
     }
     http.end();
-    if (got == 0) { heap_caps_free(buf); return false; }
+    if (got == 0) { if (buf) heap_caps_free(buf); return false; }
     *out = buf; *outLen = got;
     return true;
 }
@@ -111,9 +130,21 @@ bool photo_fetch(const char *hex) {
     snprintf(credit, sizeof(credit), "%s", (const char *)(doc["photos"][0]["photographer"] | ""));
     if (!imgUrl[0]) { Serial.printf("[photo] %s: no photo available\n", hex); photo_commit(0, 0, hex, ""); return false; }
 
-    // 2) download the JPEG thumbnail
+    // 2) download the JPEG thumbnail.
+    // planespotters serves *progressive* JPEGs, which TJpgDec cannot decode. Route the
+    // image through the weserv.nl image proxy, which re-encodes to baseline JPEG and
+    // resizes to our canvas width — the result is small (~5 KB) and decodable.
+    const char *bare = imgUrl;
+    if      (strncmp(bare, "https://", 8) == 0) bare += 8;
+    else if (strncmp(bare, "http://",  7) == 0) bare += 7;
+    int canvasW = 232, canvasH = 156;
+    photo_buffer(&canvasW, &canvasH);                 // resize to fit the canvas (preserve aspect)
+    char proxUrl[256];
+    snprintf(proxUrl, sizeof(proxUrl),
+             "https://images.weserv.nl/?url=%s&w=%d&h=%d&fit=inside&output=jpg", bare, canvasW, canvasH);
+
     uint8_t *img = nullptr; size_t ilen = 0;
-    if (!http_get(imgUrl, &img, &ilen, 65536)) { Serial.printf("[photo] %s: image download failed\n", hex); photo_commit(0, 0, hex, ""); return false; }
+    if (!http_get(proxUrl, &img, &ilen, 65536)) { Serial.printf("[photo] %s: image download failed\n", hex); photo_commit(0, 0, hex, ""); return false; }
 
     // 3) decode into the shared PSRAM buffer, scaled to fit
     int maxW = 0, maxH = 0;

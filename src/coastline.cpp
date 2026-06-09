@@ -53,13 +53,14 @@ void coastline_project(double homeLat, double homeLon, double rangeKm,
     }
 }
 
-void coastline_draw(lv_draw_ctx_t *ctx, lv_color_t color, lv_opa_t opa) {
+void coastline_draw(lv_draw_ctx_t *ctx, lv_color_t color, lv_opa_t opa, lv_coord_t width) {
     if (s_lines.empty()) return;
     lv_draw_line_dsc_t d;
     lv_draw_line_dsc_init(&d);
     d.color = color;
-    d.width = 1;
+    d.width = width;
     d.opa   = opa;
+    d.round_start = d.round_end = 1;   // smooth the joints on the thicker line
     for (const auto &line : s_lines) {
         for (size_t i = 1; i < line.size(); ++i) {
             lv_point_t a = line[i - 1];

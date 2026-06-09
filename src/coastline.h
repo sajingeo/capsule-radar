@@ -9,4 +9,4 @@
 void coastline_project(double homeLat, double homeLon, double rangeKm,
                        float cx, float cy, float rOuterPx);
 
-void coastline_draw(lv_draw_ctx_t *ctx, lv_color_t color, lv_opa_t opa);
+void coastline_draw(lv_draw_ctx_t *ctx, lv_color_t color, lv_opa_t opa, lv_coord_t width);

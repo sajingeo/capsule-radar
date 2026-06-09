@@ -32,6 +32,9 @@
 #define COL_INK    lv_color_hex(0xEAFFF3)
 #define COL_SOFT   lv_color_hex(0x9AFFC8)
 #define COL_EMERG  lv_color_hex(0xFF5A3C)
+// coastline outline — steel blue, deliberately off the red/amber/lime/green/cyan
+// altitude-trail palette so land never reads as an aircraft track.
+#define COAST_COLOR lv_color_hex(0x4E86C6)
 // ---- dragon palette (DBZ) ----
 #define DRG_BLIP   lv_color_hex(0xFFE11A)
 #define DRG_EMERG  lv_color_hex(0xFF4D2E)
@@ -74,6 +77,7 @@ static lv_obj_t  *s_centerDot = nullptr;
 static lv_obj_t  *s_pulse     = nullptr;
 static lv_obj_t  *s_rangeLbl  = nullptr;
 static bool       s_rangeLblVisible = true;
+static bool       s_sweepEnabled    = true;
 static lv_timer_t *s_timer    = nullptr;
 static float       s_sweepDeg = 0.0f;
 static float       s_prevSweepDeg = 0.0f;
@@ -196,13 +200,14 @@ static void grid_draw_cb(lv_event_t *e) {
         td.border_color = lv_color_hex(0x8A4A00);
         td.border_width = 1;
         td.border_opa = 160;
-        coastline_draw(d, DRG_GRID, 150);          // landmass outline under the triangle
+        coastline_draw(d, COAST_COLOR, 170, 2);    // landmass outline under the triangle
         lv_draw_polygon(d, &td, tri, 3);
         return;
     }
 
-    // coastline first, so the rings/crosshair sit cleanly on top of it
-    coastline_draw(d, s_cRing, 95);
+    // coastline first, so the rings/crosshair sit cleanly on top of it.
+    // Steel blue + 2 px so it reads as a map outline, distinct from the green altitude trails.
+    coastline_draw(d, COAST_COLOR, 165, 2);
 
     // phosphor: concentric rings + crosshair
     lv_draw_arc_dsc_t ad;
@@ -326,6 +331,7 @@ static void sweep_timer_cb(lv_timer_t *t) {
         }
         return;
     }
+    if (!s_sweepEnabled) return;          // sweep disabled: glyph interpolation above still runs
     s_prevSweepDeg = s_sweepDeg;
     s_sweepDeg += 360.0f * (float)SWEEP_FRAME_MS / (float)SWEEP_PERIOD_MS;
     if (s_sweepDeg >= 360.0f) s_sweepDeg -= 360.0f;
@@ -572,6 +578,15 @@ void cycleTheme() { setTheme(s_theme + 1); }
 void setThemeChangedCb(void (*cb)(int)) { s_themeCb = cb; }
 void setRangeLabelVisible(bool v) { s_rangeLblVisible = v; if (s_rangeLbl) show(s_rangeLbl, v && !dragon()); }
 
+void setSweepEnabled(bool on) {
+    s_sweepEnabled = on;
+    if (s_sweep) {
+        show(s_sweep, on);
+        if (!on) lv_obj_invalidate(s_sweep);   // clear any wedge currently painted
+    }
+}
+bool sweepEnabled() { return s_sweepEnabled; }
+
 void init(void *lv_parent) {
     lv_obj_t *parent = (lv_obj_t *)lv_parent;
     s_parent = parent;
@@ -659,9 +674,17 @@ void update(const std::vector<Aircraft> &aircraft, const RadarSettings &s) {
     // moved or range zoomed) — never per frame. Then repaint the static chrome layer.
     static double s_coLat = 1e9, s_coLon = 1e9; static float s_coRange = -1.0f;
     if (s.homeLat != s_coLat || s.homeLon != s_coLon || s.rangeKm != s_coRange) {
+        const bool firstFix = (s_coRange < 0.0f);
         s_coLat = s.homeLat; s_coLon = s.homeLon; s_coRange = s.rangeKm;
         coastline_project(s.homeLat, s.homeLon, s.rangeKm, s_cx, s_cy, R);
         if (s_gridLayer) lv_obj_invalidate(s_gridLayer);
+        if (!firstFix) {
+            // Scope scale/center changed: old trails were plotted at the previous
+            // projection and would be wrong now — drop them and clear the flow layer.
+            s_trails.clear();
+            s_flow.clear();
+            flow_redraw_all();
+        }
     }
 
     std::map<std::string, lv_point_t> prevPos;        // smooth-motion: glide starts here

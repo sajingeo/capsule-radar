@@ -85,7 +85,7 @@ static void refresh_card(void) {
         lv_color_t *pbuf = photo_buffer(&mw, &mh);
         lv_canvas_set_buffer(s_photo, pbuf, pw, ph, LV_IMG_CF_TRUE_COLOR);
         lv_obj_set_size(s_photo, pw, ph);
-        lv_obj_align(s_photo, LV_ALIGN_CENTER, 0, -56 - ph / 2);
+        lv_obj_align(s_photo, LV_ALIGN_CENTER, 0, -28 - ph / 2);   // sit lower: fill the band down to the card
         lv_obj_clear_flag(s_photo, LV_OBJ_FLAG_HIDDEN);
         lv_obj_invalidate(s_photo);
         if (s_photoCredit) {

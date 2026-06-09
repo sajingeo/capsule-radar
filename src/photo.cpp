@@ -7,8 +7,8 @@
 #include <esp_heap_caps.h>
 #endif
 
-#define PH_MAXW 160
-#define PH_MAXH 108
+#define PH_MAXW 232
+#define PH_MAXH 156
 
 static std::mutex  s_m;
 static lv_color_t *s_buf = nullptr;

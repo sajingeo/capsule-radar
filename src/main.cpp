@@ -40,6 +40,7 @@ static int                   g_brightnessDay = BRIGHTNESS_DEFAULT;   // user bri
 static int                   g_volume = 60;                          // alert volume 0..100 (web/NVS)
 static bool                  g_muted  = false;                       // mute alert pings
 static uint32_t              g_idleDimMs = IDLE_DIM_MS;              // dim after this idle time (0 = never)
+static bool                  g_showSweep = true;                     // rotating sweep line on/off (web/NVS)
 static volatile bool         g_onBattery = false;                    // discharging (set on core 1, read on core 0)
 static bool                  g_rtcSynced = false;                    // RTC written from NTP this session?
 static std::vector<Aircraft> g_snap;                                 // last snapshot (instant re-render on zoom)
@@ -240,7 +241,7 @@ static void handleRoot() {
         iopts += o;
     }
     { char o[64]; snprintf(o, sizeof(o), "<option value=0%s>Never</option>", curIdle == 0 ? " selected" : ""); iopts += o; }
-    static char buf[6000];   // static (not on the 8 KB loop-task stack) to avoid overflow
+    static char buf[6500];   // static (not on the 8 KB loop-task stack) to avoid overflow
     snprintf(buf, sizeof(buf),
         "<!DOCTYPE html><html><head><meta charset=utf-8>"
         "<meta name=viewport content='width=device-width,initial-scale=1'>"
@@ -283,7 +284,8 @@ static void handleRoot() {
         "<div class=card><div class=t>Display</div>"
         "<label>Brightness</label>"
         "<input type=range min=5 max=255 value='%d' oninput='b(this.value,0)' onchange='b(this.value,1)'>"
-        "<label>Dim screen after</label><select onchange='d(this.value)'>%s</select></div>"
+        "<label>Dim screen after</label><select onchange='d(this.value)'>%s</select>"
+        "<label><input type=checkbox class=ck %s onchange='sw(this.checked)'>Show radar sweep</label></div>"
         "<div class=card><div class=t>Sound</div>"
         "<label>Volume</label>"
         "<input type=range min=0 max=100 value='%d' oninput='v(this.value,0)' onchange='v(this.value,1)'>"
@@ -305,9 +307,11 @@ static void handleRoot() {
         "function v(x,s){fetch('/vol?v='+x+(s?'&save=1':''))}"
         "function m(c){fetch('/vol?mute='+(c?1:0)+'&save=1')}"
         "function t(){fetch('/vol?test=1')}"
-        "function d(v){fetch('/idle?v='+v+'&save=1')}</script></body></html>",
+        "function d(v){fetch('/idle?v='+v+'&save=1')}"
+        "function sw(c){fetch('/sweep?v='+(c?1:0)+'&save=1')}</script></body></html>",
         g_settings.homeLat, g_settings.homeLon, ropts.c_str(), topts.c_str(),
-        g_brightnessDay, iopts.c_str(), g_volume, g_muted ? "checked" : "",
+        g_brightnessDay, iopts.c_str(), g_showSweep ? "checked" : "",
+        g_volume, g_muted ? "checked" : "",
         g_settings.homeLat, g_settings.homeLon);
     g_web.send(200, "text/html", buf);
 }
@@ -388,6 +392,20 @@ static void handleIdle() {   // idle auto-dim timeout (seconds; 0 = never)
     g_web.send(200, "text/plain", "ok");
 }
 
+static void handleSweep() {   // show/hide the rotating sweep line (live)
+    if (g_web.hasArg("v")) {
+        g_showSweep = g_web.arg("v").toInt() != 0;
+        radar::setSweepEnabled(g_showSweep);          // loop()/core 1: safe to touch LVGL
+        if (g_web.hasArg("save")) {
+            Preferences p;
+            p.begin("capsuleradar", false);
+            p.putBool("sweep", g_showSweep);
+            p.end();
+        }
+    }
+    g_web.send(200, "text/plain", "ok");
+}
+
 // ---- browser OTA: upload an app .bin over WiFi and self-flash ----
 static void handleUpdatePage() {
     g_web.send(200, "text/html",
@@ -458,8 +476,10 @@ void setup() {
         Preferences p;
         p.begin("capsuleradar", true);
         const int t = p.getInt("theme", THEME_PHOSPHOR);
+        g_showSweep = p.getBool("sweep", true);
         p.end();
         radar::setTheme(t);
+        radar::setSweepEnabled(g_showSweep);
     }
     radar::setThemeChangedCb(saveTheme);
     ui_set_range_cb(onRangeChange);              // on-screen zoom button
@@ -519,6 +539,7 @@ void setup() {
     g_web.on("/bright", handleBright);
     g_web.on("/vol", handleVol);
     g_web.on("/idle", handleIdle);
+    g_web.on("/sweep", handleSweep);
     g_web.on("/update", HTTP_GET, handleUpdatePage);
     g_web.on("/update", HTTP_POST,
         []() {
