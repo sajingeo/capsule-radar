@@ -8,7 +8,9 @@
 #include "adsb_client.h"
 #include "config.h"
 #include <WiFi.h>
-#include <WiFiClientSecure.h>
+#if ADSB_USE_HTTPS
+#  include <WiFiClientSecure.h>
+#endif
 #include <HTTPClient.h>
 #include <ArduinoJson.h>   // v7
 #include <esp_heap_caps.h>
@@ -40,13 +42,22 @@ bool AdsbClient::poll(std::vector<Aircraft>& out) {
 bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     const double nm = _rangeKm * 0.539957;            // km -> nautical miles (API radius unit)
     char url[160];
-    // HTTP (not HTTPS) on purpose: the ESP32-S3R2 (2 MB QSPI PSRAM, 320 KB SRAM) cannot
+    // AMOLED (8 MB OPI PSRAM) runs HTTPS reliably. LCD-128 (2 MB QSPI PSRAM) can't
     // reliably allocate the contiguous internal-RAM block mbedTLS needs for a TLS
-    // handshake under memory pressure. Both airplanes.live and adsb.lol serve the same
-    // endpoint over plain HTTP. The data is public; nothing here is sensitive.
+    // handshake under memory pressure, so it falls back to plain HTTP. Both
+    // airplanes.live and adsb.lol serve the same endpoint over both.
+#if ADSB_USE_HTTPS
+    snprintf(url, sizeof(url), "https://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
+    WiFiClientSecure client;
+#  if ADSB_HTTPS_INSECURE
+    client.setInsecure();                              // hobby: skip cert validation
+#  else
+    // client.setCACert(ROOT_CA_PEM);                  // production: pin the root CA
+#  endif
+#else
     snprintf(url, sizeof(url), "http://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
-
     WiFiClient client;
+#endif
 
     HTTPClient http;
     http.setReuse(false);

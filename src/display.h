@@ -1,5 +1,8 @@
 #pragma once
-// GC9A01 240x240 IPS (Arduino_GFX, 4-wire SPI) + LVGL + CST816S touch.
+// LVGL display + capacitive-touch bring-up. The panel driver is selected at
+// build time by the BOARD_* flag in config.h:
+//   BOARD_LCD_128     -> GC9A01 4-wire SPI + CST816S touch
+//   BOARD_AMOLED_175  -> CO5300 QSPI + CST9217 touch
 // Owns the panel + LVGL display driver so main.cpp stays glue-only.
 #include <stdint.h>
 

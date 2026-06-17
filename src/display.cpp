@@ -1,26 +1,29 @@
-// GC9A01 240x240 round IPS via Arduino_GFX (4-wire SPI) + LVGL.
-// Pins come from config.h (verified against the Waveshare ESP32-S3-Touch-LCD-1.28 demo).
-// Backlight is LEDC PWM on PIN_LCD_BL (no panel-side brightness command).
+// LVGL display + touch bring-up. Two panel paths share one set of LVGL plumbing:
+//   BOARD_LCD_128     -> Arduino_GC9A01 over 4-wire SPI; backlight via LEDC PWM
+//   BOARD_AMOLED_175  -> Arduino_CO5300 over QSPI;       brightness via panel cmd 0x51
 // The actual UI is built by ui_create() (shared with the native SDL sim).
 #include "display.h"
 #include "config.h"
 #include "radar_view.h"
 #include "ui.h"
-#include "touch_cst816s.h"
+#include "touch.h"
 
 #include <Arduino.h>
 #include <Arduino_GFX_Library.h>
 #include <lvgl.h>
 #include <esp_heap_caps.h>
 
-// --- Arduino_GFX panel -------------------------------------------------------
+// --- Panel objects (typed so each board can reach its own setBrightness etc.) -
 static Arduino_DataBus *s_bus = nullptr;
+#if defined(BOARD_AMOLED_175)
+static Arduino_CO5300  *s_gfx = nullptr;
+#elif defined(BOARD_LCD_128)
 static Arduino_GC9A01  *s_gfx = nullptr;
 
-// --- Backlight (LEDC PWM) ----------------------------------------------------
-#define BL_LEDC_CHANNEL  0
+// LEDC PWM channel for the GC9A01 backlight (no panel-side brightness command).
 #define BL_LEDC_FREQ     20000
 #define BL_LEDC_RES_BITS 8
+#endif
 
 // --- LVGL plumbing -----------------------------------------------------------
 #define LVGL_BUF_LINES 40    // partial draw-buffer height (lines); kept in fast internal RAM
@@ -83,7 +86,19 @@ static void flush_cb(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *px) 
     lv_disp_flush_ready(drv);
 }
 
-// CST816S touch -> LVGL pointer. LVGL keeps the last point on release.
+#if defined(BOARD_AMOLED_175)
+// CO5300 (QSPI) requires 2-pixel-aligned flush windows: even start, odd end.
+// Without this, partial-area updates (e.g. the radar sweep) tear / ghost / flicker.
+static void rounder_cb(lv_disp_drv_t *drv, lv_area_t *area) {
+    (void)drv;
+    area->x1 &= ~1;
+    area->y1 &= ~1;
+    area->x2 |= 1;
+    area->y2 |= 1;
+}
+#endif
+
+// Touch -> LVGL pointer. LVGL keeps the last point on release.
 static void touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
     (void)drv;
     uint16_t x, y;
@@ -106,14 +121,25 @@ static void touch_read_cb(lv_indev_drv_t *drv, lv_indev_data_t *data) {
 namespace display {
 
 bool begin() {
+#if defined(BOARD_AMOLED_175)
+    Serial.println("[display] init CO5300 QSPI...");
+    s_bus = new Arduino_ESP32QSPI(PIN_LCD_CS, PIN_LCD_SCLK,
+                                  PIN_LCD_D0, PIN_LCD_D1, PIN_LCD_D2, PIN_LCD_D3);
+    s_gfx = new Arduino_CO5300(s_bus, PIN_LCD_RST, 0 /*rotation*/,
+                               SCREEN_W, SCREEN_H,
+                               LCD_COL_OFFSET, LCD_ROW_OFFSET, 0, 0);
+    if (!s_gfx->begin(LCD_QSPI_HZ)) {
+        Serial.println("[display] gfx->begin() FAILED");
+        return false;
+    }
+    s_gfx->fillScreen(RGB565_BLACK);
+    s_gfx->setBrightness(BRIGHTNESS_DEFAULT);
+#elif defined(BOARD_LCD_128)
     Serial.println("[display] init GC9A01 SPI...");
-
-    // LEDC PWM on backlight (no panel-side brightness on GC9A01). Arduino-ESP32 v3
-    // unified ledcSetup+Attach into ledcAttach(pin, freq, resolution_bits).
+    // LEDC PWM on backlight (no panel-side brightness on GC9A01).
     ledcAttach(PIN_LCD_BL, BL_LEDC_FREQ, BL_LEDC_RES_BITS);
     ledcWrite(PIN_LCD_BL, 0);   // dark until we've drawn something
 
-    // 4-wire SPI on the default ESP32-S3 SPI peripheral. Arduino_ESP32SPI(dc, cs, sclk, mosi, miso).
     s_bus = new Arduino_ESP32SPI(PIN_LCD_DC, PIN_LCD_CS, PIN_LCD_SCLK, PIN_LCD_MOSI, PIN_LCD_MISO);
     s_gfx = new Arduino_GC9A01(s_bus, PIN_LCD_RST, 0 /*rotation*/, true /*IPS*/);
     if (!s_gfx->begin(LCD_SPI_HZ)) {
@@ -121,12 +147,14 @@ bool begin() {
         return false;
     }
     s_gfx->fillScreen(RGB565_BLACK);
-    Serial.println("[display] panel up; init LVGL...");
+#endif
 
+    Serial.println("[display] panel up; init LVGL...");
     lv_init();
 
-    // Draw scratch in INTERNAL DMA RAM: rendering anti-aliased graphics into the slow
-    // QSPI PSRAM is the bottleneck. Single partial buffer fits the budget on R2.
+    // Draw scratch in INTERNAL DMA RAM: rendering anti-aliased graphics into the
+    // PSRAM is slow (the bottleneck, not bus bandwidth). Single partial buffer
+    // fits the budget on both boards.
     const size_t buf_px = (size_t)SCREEN_W * LVGL_BUF_LINES;
     s_buf1 = (lv_color_t *)heap_caps_malloc(buf_px * sizeof(lv_color_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
     s_buf2 = nullptr;
@@ -143,29 +171,39 @@ bool begin() {
     s_disp_drv.hor_res  = SCREEN_W;
     s_disp_drv.ver_res  = SCREEN_H;
     s_disp_drv.flush_cb = flush_cb;
+#if defined(BOARD_AMOLED_175)
+    s_disp_drv.rounder_cb = rounder_cb;     // CO5300 needs 2-px-aligned windows
+#endif
     s_disp_drv.draw_buf = &s_draw_buf;
     lv_disp_drv_register(&s_disp_drv);
 
-    // Touch input (CST816S) -> LVGL pointer indev (drives tap-to-inspect + swipe).
     if (touch_begin()) {
         lv_indev_drv_init(&s_indev_drv);
         s_indev_drv.type = LV_INDEV_TYPE_POINTER;
         s_indev_drv.read_cb = touch_read_cb;
         lv_indev_drv_register(&s_indev_drv);
-        Serial.println("[display] CST816S touch registered");
+        Serial.println("[display] touch registered");
     }
 
     Serial.printf("[display] PSRAM free: %u KB\n", (unsigned)(ESP.getFreePsram() / 1024));
-    ui_create();                   // radar/list/stats views + tap-to-inspect
+    ui_create();
 
+#if defined(BOARD_LCD_128)
     setBrightness(BRIGHTNESS_DEFAULT);
+#endif
     Serial.println("[display] LVGL ready");
     return true;
 }
 
 void loop() { lv_timer_handler(); }
 
-void setBrightness(uint8_t v) { ledcWrite(PIN_LCD_BL, v); }
+void setBrightness(uint8_t v) {
+#if defined(BOARD_AMOLED_175)
+    if (s_gfx) s_gfx->setBrightness(v);
+#elif defined(BOARD_LCD_128)
+    ledcWrite(PIN_LCD_BL, v);
+#endif
+}
 
 void setRotation(uint8_t quarters) {
     s_rot = (uint8_t)(quarters & 3);

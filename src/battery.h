@@ -1,5 +1,7 @@
 #pragma once
-// Battery readout. ESP32-S3-Touch-LCD-1.28: ETA6096 charger + ADC on PIN_BAT_ADC.
+// Battery readout. Implementation switches at compile time:
+//   BOARD_AMOLED_175  -> AXP2101 PMIC over I2C (XPowersLib).
+//   BOARD_LCD_128     -> ETA6096 + voltage divider on PIN_BAT_ADC; charging is approximated.
 // All calls run on the LVGL loop core so they don't fight the network task.
 bool battery_begin();      // init; false if the PMIC isn't found
 bool battery_present();    // a LiPo is connected
