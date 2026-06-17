@@ -56,7 +56,7 @@
 
 // ---- aircraft / flow / dragon config ----
 #define TRAIL_MAX         7
-#define TAP_RADIUS_PX     40    // generous finger-tap catch radius (picks the nearest glyph within it)
+#define TAP_RADIUS_PX     22    // generous finger-tap catch radius (picks the nearest glyph within it)
 #define FLOW_MAX          700
 #define FLOW_REDRAW_EVERY 80
 #define FLOW_OPA          55
@@ -220,7 +220,7 @@ static void grid_draw_cb(lv_event_t *e) {
     lv_draw_arc_dsc_init(&ad);
     ad.color = s_cRing;
     ad.width = 2;
-    const lv_coord_t rr[4] = { 50, 104, 160, RADAR_R_OUTER_PX };
+    const lv_coord_t rr[4] = { 28, 56, 84, RADAR_R_OUTER_PX };
     const lv_opa_t   ro[4] = { 66, 66, 66, 87 };
     for (int i = 0; i < 4; ++i) { ad.opa = ro[i]; lv_draw_arc(d, &ad, &c, rr[i], 0, 360); }
 
@@ -229,8 +229,8 @@ static void grid_draw_cb(lv_event_t *e) {
     ll.color = s_cRing;
     ll.width = 2;
     ll.opa = 41;
-    lv_point_t h1 = { (lv_coord_t)(s_cx - 211), s_cy }, h2 = { (lv_coord_t)(s_cx + 211), s_cy };
-    lv_point_t v1 = { s_cx, (lv_coord_t)(s_cy - 211) }, v2 = { s_cx, (lv_coord_t)(s_cy + 211) };
+    lv_point_t h1 = { (lv_coord_t)(s_cx - 112), s_cy }, h2 = { (lv_coord_t)(s_cx + 112), s_cy };
+    lv_point_t v1 = { s_cx, (lv_coord_t)(s_cy - 112) }, v2 = { s_cx, (lv_coord_t)(s_cy + 112) };
     lv_draw_line(d, &ll, &h1, &h2);
     lv_draw_line(d, &ll, &v1, &v2);
 }
@@ -286,8 +286,8 @@ static void wedge_bbox(float deg, lv_area_t *out) {
 // glyph + label bounding box (for partial invalidation during the glide)
 static inline lv_area_t glyph_bbox(lv_point_t p) {
     lv_area_t a;
-    if (dragon()) { a.x1 = p.x - 30; a.y1 = p.y - 30; a.x2 = p.x + 30;  a.y2 = p.y + 30; }
-    else          { a.x1 = p.x - 22; a.y1 = p.y - 22; a.x2 = p.x + 148; a.y2 = p.y + 26; }
+    if (dragon()) { a.x1 = p.x - 18; a.y1 = p.y - 18; a.x2 = p.x + 18; a.y2 = p.y + 18; }
+    else          { a.x1 = p.x - 14; a.y1 = p.y - 14; a.x2 = p.x + 80; a.y2 = p.y + 16; }
     return a;
 }
 static inline void area_union(lv_area_t &d, const lv_area_t &s) {
@@ -490,14 +490,14 @@ static void ac_draw_cb(lv_event_t *e) {
         if (!drg) {
             lv_draw_label_dsc_t lc;
             lv_draw_label_dsc_init(&lc);
-            lc.font = &lv_font_montserrat_14;
+            lc.font = &lv_font_montserrat_10;
             lc.color = s_cInk;
             lv_area_t a1 = { (lv_coord_t)(ac.pos.x + 12), (lv_coord_t)(ac.pos.y - 14),
                              (lv_coord_t)(ac.pos.x + 142), (lv_coord_t)(ac.pos.y + 2) };
             if (ac.call[0]) lv_draw_label(d, &lc, &a1, ac.call, NULL);
             lv_draw_label_dsc_t la;
             lv_draw_label_dsc_init(&la);
-            la.font = &lv_font_montserrat_12;
+            la.font = &lv_font_montserrat_8;
             la.color = ac.color;
             lv_area_t a2 = { a1.x1, (lv_coord_t)(ac.pos.y + 2), a1.x2, (lv_coord_t)(ac.pos.y + 20) };
             if (ac.altTxt[0]) lv_draw_label(d, &la, &a2, ac.altTxt, NULL);
@@ -632,14 +632,14 @@ void init(void *lv_parent) {
     s_sweep     = make_layer(parent, sweep_draw_cb);
     s_acLayer   = make_layer(parent, ac_draw_cb);
 
-    s_rose[0] = make_label(parent, "N", &lv_font_montserrat_28, COL_INK,  LV_ALIGN_TOP_MID,    0, 12);
-    s_rose[1] = make_label(parent, "S", &lv_font_montserrat_16, COL_SOFT, LV_ALIGN_BOTTOM_MID, 0, -12);
-    s_rose[2] = make_label(parent, "E", &lv_font_montserrat_16, COL_SOFT, LV_ALIGN_RIGHT_MID, -12, 0);
-    s_rose[3] = make_label(parent, "W", &lv_font_montserrat_16, COL_SOFT, LV_ALIGN_LEFT_MID,   12, 0);
+    s_rose[0] = make_label(parent, "N", &lv_font_montserrat_16, COL_INK,  LV_ALIGN_TOP_MID,    0, 6);
+    s_rose[1] = make_label(parent, "S", &lv_font_montserrat_12, COL_SOFT, LV_ALIGN_BOTTOM_MID, 0, -6);
+    s_rose[2] = make_label(parent, "E", &lv_font_montserrat_12, COL_SOFT, LV_ALIGN_RIGHT_MID, -6, 0);
+    s_rose[3] = make_label(parent, "W", &lv_font_montserrat_12, COL_SOFT, LV_ALIGN_LEFT_MID,   6, 0);
 
     char rng[16];
     snprintf(rng, sizeof(rng), "%.0f km", (double)RANGE_KM_DEFAULT);
-    s_rangeLbl = make_label(parent, rng, &lv_font_montserrat_14, COL_GREEN, LV_ALIGN_CENTER, 92, -8);
+    s_rangeLbl = make_label(parent, rng, &lv_font_montserrat_10, COL_GREEN, LV_ALIGN_CENTER, 48, -4);
     lv_obj_set_style_text_opa(s_rangeLbl, 128, 0);
 
     s_pulse = lv_obj_create(parent);

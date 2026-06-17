@@ -1,7 +1,6 @@
 #pragma once
-// M0 bring-up: CO5300 AMOLED (Arduino_GFX over QSPI) + LVGL.
+// GC9A01 240x240 IPS (Arduino_GFX, 4-wire SPI) + LVGL + CST816S touch.
 // Owns the panel + LVGL display driver so main.cpp stays glue-only.
-// Touch (CST9217 indev) and the radar UI come in later milestones.
 #include <stdint.h>
 
 namespace display {
@@ -13,7 +12,7 @@ bool begin();
 // Pump LVGL: render dirty areas + run LVGL timers. Call every loop() iteration.
 void loop();
 
-// 0..255 panel brightness (CO5300 command 0x51).
+// 0..255 backlight duty (LEDC PWM on PIN_LCD_BL).
 void setBrightness(uint8_t v);
 
 // ms since the last touch (LVGL inactivity timer) — for idle auto-dim.

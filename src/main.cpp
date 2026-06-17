@@ -702,13 +702,52 @@ void setup() {
         handleUpdateUpload);
     g_web.begin();
 
+    pinMode(PIN_BOOT_BUTTON, INPUT_PULLUP);    // BOOT button: hold to reset WiFi (3s) or factory-reset (10s)
+
     Serial.println("setup done");
+}
+
+// Service the BOOT button. Long-press to reset, no IP/web needed.
+//   3s   -> clear saved WiFi creds, reboot into captive-portal AP
+//   10s  -> wipe all of NVS (theme, range, home, brightness, ...), reboot
+// We sample once per loop; the loop runs at LVGL rate (~30 ms) so there's no need
+// for a debounce timer beyond the 50 ms minimum-hold check.
+static void serviceBootButton() {
+    static uint32_t pressedMs = 0;
+    static bool prevDown = false;
+    static uint8_t firedTier = 0;             // 0=none, 1=wifi-reset armed, 2=factory armed
+    const bool down = (digitalRead(PIN_BOOT_BUTTON) == LOW);
+    const uint32_t now = millis();
+
+    if (down && !prevDown) { pressedMs = now; firedTier = 0; }
+    if (down) {
+        const uint32_t held = now - pressedMs;
+        // visual hint on the screen so the user knows they're getting through
+        if (held > 3000 && firedTier < 1) { firedTier = 1; Serial.println("[btn] WiFi-reset armed (release to apply, hold 10s for factory reset)"); }
+        if (held > 10000 && firedTier < 2) { firedTier = 2; Serial.println("[btn] factory-reset armed (release to apply)"); }
+    } else if (!down && prevDown) {
+        const uint32_t held = now - pressedMs;
+        if (held >= 10000) {
+            Serial.println("[btn] factory reset: erasing NVS");
+            Preferences p; p.begin("capsuleradar", false); p.clear(); p.end();
+            g_wm.resetSettings();
+            delay(200);
+            ESP.restart();
+        } else if (held >= 3000) {
+            Serial.println("[btn] WiFi reset: clearing creds");
+            g_wm.resetSettings();
+            delay(200);
+            ESP.restart();
+        }
+    }
+    prevDown = down;
 }
 
 void loop() {
     display::loop();                // drive LVGL (render dirty areas + run timers)
     g_wm.process();                 // service the WiFi config portal (non-blocking)
     g_web.handleClient();           // serve the configuration web page
+    serviceBootButton();            // hold BOOT 3s = WiFi reset, 10s = factory reset
 
     // scheduled reboot after a fresh WiFi config (see setSaveConfigCallback)
     if (g_rebootAtMs && (int32_t)(millis() - g_rebootAtMs) >= 0) { delay(50); ESP.restart(); }
@@ -720,7 +759,7 @@ void loop() {
         ArduinoOTA.begin();
         MDNS.addService("http", "tcp", 80);            // advertise the config web page
         otaUp = true;
-        Serial.println("[ota] ready: pio run -e esp32-s3-amoled-175-ota -t upload");
+        Serial.println("[ota] ready: pio run -e esp32-s3-touch-lcd-128-ota -t upload");
     }
     if (otaUp) ArduinoOTA.handle();
 

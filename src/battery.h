@@ -1,7 +1,6 @@
 #pragma once
-// AXP2101 PMIC battery readout (via XPowersLib). Device-only.
-// All calls must run on the same core as the other I2C users (the LVGL loop),
-// never from the network task, to avoid bus contention.
+// Battery readout. ESP32-S3-Touch-LCD-1.28: ETA6096 charger + ADC on PIN_BAT_ADC.
+// All calls run on the LVGL loop core so they don't fight the network task.
 bool battery_begin();      // init; false if the PMIC isn't found
 bool battery_present();    // a LiPo is connected
 int  battery_percent();    // 0..100, or -1 if unknown

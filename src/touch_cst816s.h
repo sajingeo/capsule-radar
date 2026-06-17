@@ -1,6 +1,6 @@
 #pragma once
-// Minimal Arduino driver for the CST9217 capacitive touch (I2C). Device-only.
-// Protocol ported from Waveshare's esp_lcd_touch_cst9217 component.
+// Minimal Arduino driver for the CST816S capacitive touch (I2C). Device-only.
+// Protocol: read 6 bytes from reg 0x01 — see Waveshare ESP32-S3-Touch-LCD-1.28 demo.
 #include <stdint.h>
 
 bool touch_begin();                       // I2C + hardware reset; logs comms status

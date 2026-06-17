@@ -40,14 +40,13 @@ bool AdsbClient::poll(std::vector<Aircraft>& out) {
 bool AdsbClient::fetchFrom(const char* host, std::vector<Aircraft>& out) {
     const double nm = _rangeKm * 0.539957;            // km -> nautical miles (API radius unit)
     char url[160];
-    snprintf(url, sizeof(url), "https://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
+    // HTTP (not HTTPS) on purpose: the ESP32-S3R2 (2 MB QSPI PSRAM, 320 KB SRAM) cannot
+    // reliably allocate the contiguous internal-RAM block mbedTLS needs for a TLS
+    // handshake under memory pressure. Both airplanes.live and adsb.lol serve the same
+    // endpoint over plain HTTP. The data is public; nothing here is sensitive.
+    snprintf(url, sizeof(url), "http://%s/v2/point/%.4f/%.4f/%.0f", host, _lat, _lon, nm);
 
-    WiFiClientSecure client;
-#if ADSB_HTTPS_INSECURE
-    client.setInsecure();                              // hobby: skip cert validation
-#else
-    // client.setCACert(ROOT_CA_PEM);                  // production: pin the root CA
-#endif
+    WiFiClient client;
 
     HTTPClient http;
     http.setReuse(false);
