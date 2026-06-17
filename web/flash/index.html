@@ -30,6 +30,8 @@
   .radar::before { content:""; position:absolute; inset:0; border-radius:50%;
     background: conic-gradient(from 0deg, rgba(29,255,134,.55), transparent 60%); animation: spin 3.2s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
+  .ver { color:var(--soft); font-size:13px; margin-top:14px; }
+  .ver b { color: var(--green); }
 </style>
 </head>
 <body>
@@ -44,6 +46,7 @@
       <span slot="unsupported">Use Chrome or Edge on desktop (Web Serial required).</span>
       <span slot="not-allowed">Serve this page over HTTPS to flash.</span>
     </esp-web-install-button>
+    <div class="ver">Installs firmware <b>v__FWVER__</b></div>
   </div>
 
   <div class="card">

@@ -1,6 +1,6 @@
 {
   "name": "Capsule Radar",
-  "version": "1.0.0",
+  "version": "__FWVER__",
   "new_install_prompt_erase": true,
   "builds": [
     {
