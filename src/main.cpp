@@ -46,6 +46,7 @@ static bool                  g_showSweep = true;                     // rotating
 static int                   g_units = 0;                            // 0=Aviation 1=Metric 2=Imperial (web/NVS)
 static bool                  g_showAirports = true;                  // airport markers on/off (web/NVS)
 static int                   g_rotation = 0;                         // display rotation 0/1/2/3 = 0/90/180/270 (web/NVS)
+static String                g_tz = TZ_STR;                          // POSIX TZ string (web/NVS), e.g. "EST5EDT,M3.2.0,M11.1.0"
 static volatile bool         g_onBattery = false;                    // discharging (set on core 1, read on core 0)
 static bool                  g_rtcSynced = false;                    // RTC written from NTP this session?
 static std::vector<Aircraft> g_snap;                                 // last snapshot (instant re-render on zoom)
@@ -65,7 +66,7 @@ static void adsb_task(void*) {
         const bool conn = (WiFi.status() == WL_CONNECTED);
         if (conn && !wasConnected) {
             Serial.printf("[adsb] WiFi up, IP %s\n", WiFi.localIP().toString().c_str());
-            configTzTime(TZ_STR, "pool.ntp.org", "time.nist.gov");  // local time (Spain)
+            configTzTime(g_tz.c_str(), "pool.ntp.org", "time.nist.gov");  // local time per g_tz (web/NVS)
             Serial.println("[web] config: http://capsuleradar.local/  (or the IP above)");
             // mDNS + OTA are started on core 1 (loop) to keep all mDNS use on one core
         }
@@ -148,7 +149,18 @@ static void loadSettings() {
     g_proximityKm      = p.getFloat("proxkm", 0.0f);
     g_idleDimMs        = p.getUInt("idledim", IDLE_DIM_MS);
     g_units            = p.getInt("units", 0);
+    g_tz               = p.getString("tz", TZ_STR);
     p.end();
+}
+
+// Apply the current g_tz to the system clock + reconfigure NTP. Cheap; safe to
+// call any time after WiFi is up (or with NTP servers unreachable — the local TZ
+// applies regardless).
+static void applyTimezone() {
+    setenv("TZ", g_tz.c_str(), 1); tzset();
+    if (WiFi.status() == WL_CONNECTED) {
+        configTzTime(g_tz.c_str(), "pool.ntp.org", "time.nist.gov");
+    }
 }
 
 // Audio alerts. g_alertMode: 0 = off, 1 = emergencies only, 2 = new aircraft + emergencies.
@@ -214,7 +226,7 @@ static void saveTheme(int t) {
 static time_t utc_to_time(struct tm *utc) {
     setenv("TZ", "UTC0", 1); tzset();
     const time_t t = mktime(utc);
-    setenv("TZ", TZ_STR, 1); tzset();   // restore local TZ for getLocalTime()
+    setenv("TZ", g_tz.c_str(), 1); tzset();   // restore local TZ for getLocalTime()
     return t;
 }
 
@@ -308,7 +320,40 @@ static void handleRoot() {
         snprintf(o, sizeof(o), "<option value=%.3f%s>%s</option>", pkm, sel ? " selected" : "", lbl);
         popts += o;
     }
-    static char buf[8200];   // static (not on the 8 KB loop-task stack) to avoid overflow
+    // Time-zone presets (POSIX TZ strings). The currently saved g_tz is appended as
+    // a "Custom (current)" option if it doesn't match any preset, so a hand-edited
+    // value isn't silently overwritten.
+    struct TzOpt { const char *label; const char *posix; };
+    const TzOpt tzs[] = {
+        {"US Eastern (EST/EDT)",  "EST5EDT,M3.2.0,M11.1.0"},
+        {"US Central (CST/CDT)",  "CST6CDT,M3.2.0,M11.1.0"},
+        {"US Mountain (MST/MDT)", "MST7MDT,M3.2.0,M11.1.0"},
+        {"US Pacific (PST/PDT)",  "PST8PDT,M3.2.0,M11.1.0"},
+        {"US Arizona (no DST)",   "MST7"},
+        {"UTC",                   "UTC0"},
+        {"UK (GMT/BST)",          "GMT0BST,M3.5.0/1,M10.5.0"},
+        {"Central Europe (CET)",  "CET-1CEST,M3.5.0,M10.5.0/3"},
+        {"Eastern Europe (EET)",  "EET-2EEST,M3.5.0/3,M10.5.0/4"},
+        {"India (IST)",           "IST-5:30"},
+        {"Japan (JST)",           "JST-9"},
+        {"Australia East (AEST)", "AEST-10AEDT,M10.1.0,M4.1.0/3"},
+    };
+    bool tzMatched = false;
+    String tzOpts;
+    for (const auto &t : tzs) {
+        const bool sel = g_tz == t.posix;
+        if (sel) tzMatched = true;
+        char o[200];
+        snprintf(o, sizeof(o), "<option value='%s'%s>%s</option>", t.posix, sel ? " selected" : "", t.label);
+        tzOpts += o;
+    }
+    if (!tzMatched) {
+        char o[200];
+        snprintf(o, sizeof(o), "<option value='%s' selected>Custom: %s</option>", g_tz.c_str(), g_tz.c_str());
+        tzOpts += o;
+    }
+
+    static char buf[8800];   // static (not on the 8 KB loop-task stack) to avoid overflow
     snprintf(buf, sizeof(buf),
         "<!DOCTYPE html><html><head><meta charset=utf-8>"
         "<meta name=viewport content='width=device-width,initial-scale=1'>"
@@ -347,6 +392,7 @@ static void handleRoot() {
         "<label>Center longitude</label><input id=lon name=lon value='%.5f'>"
         "<label>Display range</label><select name=range>%s</select>"
         "<label>Theme</label><select name=theme>%s</select>"
+        "<label>Time zone</label><select name=tz>%s</select>"
         "<button>Save &amp; restart</button></form></div>"
         "<div class=card><div class=t>Display</div>"
         "<label>Brightness</label>"
@@ -386,7 +432,7 @@ static void handleRoot() {
         "function u(v){fetch('/units?v='+v+'&save=1')}"
         "function al(v){fetch('/alerts?mode='+v+'&save=1')}"
         "function px(v){fetch('/alerts?prox='+v+'&save=1')}</script></body></html>",
-        g_settings.homeLat, g_settings.homeLon, ropts.c_str(), topts.c_str(),
+        g_settings.homeLat, g_settings.homeLon, ropts.c_str(), topts.c_str(), tzOpts.c_str(),
         g_brightnessDay, iopts.c_str(), g_showSweep ? "checked" : "",
         g_showAirports ? "checked" : "", rotopts.c_str(), uopts.c_str(),
         g_volume, g_muted ? "checked" : "", aopts.c_str(), popts.c_str(),
@@ -408,6 +454,16 @@ static void handleSave() {
     }
     if (g_web.hasArg("range")) p.putFloat("rangeKm", g_web.arg("range").toFloat());
     if (g_web.hasArg("theme")) p.putInt("theme", g_web.arg("theme").toInt());
+    if (g_web.hasArg("tz")) {
+        // POSIX TZ strings cap out around 64 chars in practice; reject anything
+        // wildly oversized so a malformed POST can't blow up NVS.
+        String tz = g_web.arg("tz");
+        if (tz.length() >= 4 && tz.length() <= 96) {
+            p.putString("tz", tz);
+            g_tz = tz;
+            applyTimezone();   // takes effect immediately; the restart below just refreshes the UI
+        }
+    }
     p.end();
     g_web.send(200, "text/html",
         "<meta http-equiv=refresh content='4;url=/'><body style='background:#06100a;color:#1dff86;"
@@ -629,7 +685,7 @@ void setup() {
     battery_begin();   // AXP2101 (no-op if not detected / no battery)
     battery_enable_codec_rail();   // power the ES8311 analog rail before audio init
 
-    setenv("TZ", TZ_STR, 1); tzset();   // local time for display even before NTP
+    setenv("TZ", g_tz.c_str(), 1); tzset();   // local time for display even before NTP
     rtc_begin();
     rtc_seed_clock();                   // offline clock/date from the PCF85063
     if (audio_begin()) {                // ES8311 alert pings (no-op if codec absent)

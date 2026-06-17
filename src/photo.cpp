@@ -1,4 +1,5 @@
 #include "photo.h"
+#include "config.h"
 #include <mutex>
 #include <string.h>
 #include <stdio.h>
@@ -7,8 +8,16 @@
 #include <esp_heap_caps.h>
 #endif
 
-#define PH_MAXW 232
-#define PH_MAXH 156
+// Max decoded photo size, sized to fit above the detail card without bleeding off
+// the round panel. Picked per-board (AMOLED has 4× the pixel area, so a much
+// larger image looks fine there).
+#if defined(BOARD_LCD_128)
+#  define PH_MAXW 180
+#  define PH_MAXH  80
+#else
+#  define PH_MAXW 232
+#  define PH_MAXH 156
+#endif
 
 static std::mutex  s_m;
 static lv_color_t *s_buf = nullptr;

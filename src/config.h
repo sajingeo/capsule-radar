@@ -49,7 +49,16 @@ static const float RANGE_STEPS_KM[] = {10.0f, 20.0f, 30.0f, 50.0f, 100.0f};
 #define DEBUG_MEM           0
 
 // ---------- Common timezone / brightness ----------
-#define TZ_STR              "CET-1CEST,M3.5.0,M10.5.0/3"  // POSIX TZ (Spain)
+// POSIX TZ string — runtime-overridable via the web config page (NVS key "tz").
+// Default = US Eastern (EST/EDT, US DST rules). Common values:
+//   US Eastern:  "EST5EDT,M3.2.0,M11.1.0"
+//   US Central:  "CST6CDT,M3.2.0,M11.1.0"
+//   US Mountain: "MST7MDT,M3.2.0,M11.1.0"
+//   US Pacific:  "PST8PDT,M3.2.0,M11.1.0"
+//   UK:          "GMT0BST,M3.5.0/1,M10.5.0"
+//   Spain:       "CET-1CEST,M3.5.0,M10.5.0/3"
+//   UTC:         "UTC0"
+#define TZ_STR              "EST5EDT,M3.2.0,M11.1.0"
 #define BRIGHTNESS_DEFAULT  200
 #define BRIGHTNESS_IDLE     25
 #define IDLE_DIM_MS         20000
